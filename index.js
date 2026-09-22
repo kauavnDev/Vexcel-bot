@@ -27,7 +27,7 @@ const promptDeSistema = `Você é um administrador do servidor. Nossa comunidade
 
 // 5. Configurando o cérebro com o modelo padrão
 const model = genAI.getGenerativeModel({ 
-  model: "gemini-1.5-flash",
+  model: "gemini-pro",
   systemInstruction: promptDeSistema
 });
 
