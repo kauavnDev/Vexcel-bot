@@ -3,8 +3,8 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const http = require('http');
 
-// 1. Mini-servidor web para o Render manter o bot online (Porta 3000)
-http.createServer((req, res) => res.end('Bot online com memoria!')).listen(process.env.PORT || 3000);
+// 1. Mini-servidor web para o Render manter o bot online
+http.createServer((req, res) => res.end('Bot online!')).listen(process.env.PORT || 3000);
 
 // 2. Conexão com o Discord
 const client = new Client({
@@ -18,24 +18,24 @@ const client = new Client({
 // 3. Conexão com o Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// 4. A Personalidade (O "System Prompt")
+// 4. A Personalidade do Bot
 const promptDeSistema = `Você é um administrador do servidor. Nossa comunidade é focada em tecnologia, projetos digitais e revenda de serviços.
 - Aja como um humano membro da equipe.
 - Você tem memória das conversas, então aja com naturalidade.
 - Tire dúvidas dos membros, dê ideias para estruturar vendas ou códigos, e mantenha o clima do servidor organizado e produtivo.
 - Seja carismático e um pouco sarcástico, mas sempre prestativo.`;
 
-// 5. Configurando o cérebro com o modelo padrão estável
+// 5. Configurando o cérebro com o modelo 2.0-flash
 const model = genAI.getGenerativeModel({ 
-  model: "gemini-2.5-flash",
+  model: "gemini-2.0-flash",
   systemInstruction: promptDeSistema
 });
 
-// 6. A MEMÓRIA: Um mapa na RAM para guardar o histórico de cada canal
+// 6. Memória RAM por canal
 const memoriasDosCanais = new Map();
 
 client.on('ready', () => {
-  console.log(`⚡ Cérebro turbinado com MEMÓRIA! Bot online como ${client.user.tag}`);
+  console.log(`⚡ Cérebro conectado! Bot online como ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -48,27 +48,20 @@ client.on('messageCreate', async (message) => {
 
       await message.channel.sendTyping();
 
-      // Se é a primeira vez conversando neste canal, cria um histórico em branco
       if (!memoriasDosCanais.has(channelId)) {
-        console.log(`Criando nova sessão de memória para o canal: ${channelId}`);
-        const novoChat = model.startChat({
-          history: []
-        });
+        const novoChat = model.startChat({ history: [] });
         memoriasDosCanais.set(channelId, novoChat);
       }
 
-      // Puxa o histórico específico desse canal
       const chat = memoriasDosCanais.get(channelId);
-
-      // Envia a mensagem e salva o contexto automaticamente
       const result = await chat.sendMessage(mensagemUsuario);
       const respostaIA = result.response.text();
 
       message.reply(respostaIA);
 
     } catch (error) {
-      console.error("Erro no processamento da memória:", error);
-      message.reply("Deu um tilt nos meus circuitos agora, tenta de novo!");
+      console.error("Erro no processamento:", error);
+      message.reply("Deu um tilt nos meus circuitos, tenta de novo em instantes!");
     }
   }
 });
