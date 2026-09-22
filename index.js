@@ -1,9 +1,9 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 const http = require('http');
 
-// 1. Mini-servidor web para manter o Render online
+// 1. Mini-servidor web para manter o Render online (Porta 3000)
 http.createServer((req, res) => res.end('Bot online!')).listen(process.env.PORT || 3000);
 
 // 2. Conexão com o Discord
@@ -15,8 +15,8 @@ const client = new Client({
   ]
 });
 
-// 3. Conexão com o Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// 3. Conexão com a SDK nova do Google
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // 4. A Personalidade do Bot
 const promptDeSistema = `Você é um administrador do servidor. Nossa comunidade é focada em tecnologia, projetos digitais e revenda de serviços.
@@ -25,17 +25,11 @@ const promptDeSistema = `Você é um administrador do servidor. Nossa comunidade
 - Tire dúvidas dos membros, dê ideias para estruturar vendas ou códigos, e mantenha o clima do servidor organizado e produtivo.
 - Seja carismático e um pouco sarcástico, mas sempre prestativo.`;
 
-// 5. Configurando o cérebro com o modelo flash atualizado
-const model = genAI.getGenerativeModel({ 
-  model: "gemini-2.5-flash",
-  systemInstruction: promptDeSistema
-});
-
-// 6. Memória RAM por canal
+// 5. Memória RAM por canal para o histórico
 const memoriasDosCanais = new Map();
 
 client.on('ready', () => {
-  console.log(`⚡ Cérebro conectado! Bot online como ${client.user.tag}`);
+  console.log(`⚡ Cérebro conectado com a SDK oficial! Bot online como ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -48,14 +42,29 @@ client.on('messageCreate', async (message) => {
 
       await message.channel.sendTyping();
 
+      // Inicializa o histórico do canal se não existir
       if (!memoriasDosCanais.has(channelId)) {
-        const novoChat = model.startChat({ history: [] });
-        memoriasDosCanais.set(channelId, novoChat);
+        memoriasDosCanais.set(channelId, []);
       }
 
-      const chat = memoriasDosCanais.get(channelId);
-      const result = await chat.sendMessage(mensagemUsuario);
-      const respostaIA = result.response.text();
+      const historico = memoriasDosCanais.get(channelId);
+
+      // Adiciona a mensagem do usuário ao histórico
+      historico.push({ role: 'user', parts: [{ text: mensagemUsuario }] });
+
+      // Chamada usando a nova SDK oficial com o modelo correto e as regras de sistema
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: historico,
+        config: {
+          systemInstruction: promptDeSistema,
+        }
+      });
+
+      const respostaIA = response.text;
+
+      // Adiciona a resposta da IA ao histórico para garantir a memória contínua
+      historico.push({ role: 'model', parts: [{ text: respostaIA }] });
 
       message.reply(respostaIA);
 
