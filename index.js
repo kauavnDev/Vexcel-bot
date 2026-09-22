@@ -1,64 +1,76 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const http = require('http');
 
-// 1. Configurando a conexão com o Discord
+// 1. Mini-servidor web para o Render manter o bot online (Porta 3000)
+http.createServer((req, res) => res.end('Bot online com memória!')).listen(process.env.PORT || 3000);
+
+// 2. Conexão com o Discord
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent // Permite ler o que as pessoas digitam
+    GatewayIntentBits.MessageContent
   ]
 });
 
-// 2. Configurando a conexão com o cérebro (Gemini)
+// 3. Conexão com o Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// 3. A Personalidade Secreta da IA (System Prompt)
-// Mude este texto para moldar quem o bot é no seu servidor.
-const promptDeSistema = "Você é um assistente de inteligência artificial de um servidor focado em tecnologia e projetos digitais. Responda de forma rápida, carismática e direta. Você deve ajudar os usuários com dúvidas. Nunca diga que você é uma IA do Google.";
+// 4. A Personalidade (O "System Prompt")
+const promptDeSistema = `Você é um administrador do servidor. Nossa comunidade é focada em tecnologia, projetos digitais e revenda de serviços.
+- Aja como um humano membro da equipe.
+- Você tem memória das conversas, então aja com naturalidade.
+- Tire dúvidas dos membros, dê ideias para estruturar vendas ou códigos, e mantenha o clima do servidor organizado e produtivo.
+- Seja carismático e um pouco sarcástico, mas sempre prestativo.`;
 
-// Avisa no terminal quando o bot ligar com sucesso
-client.on('ready', () => {
-  console.log(`⚡ Cérebro conectado! Bot online como ${client.user.tag}`);
+// 5. Configurando o cérebro com as instruções base
+const model = genAI.getGenerativeModel({ 
+  model: "gemini-1.5-flash",
+  systemInstruction: promptDeSistema
 });
 
-// O que acontece quando alguém manda mensagem
+// 6. A MEMÓRIA: Um "arquivo" na RAM para guardar o histórico de cada canal
+const memoriasDosCanais = new Map();
+
+client.on('ready', () => {
+  console.log(`⚡ Cérebro turbinado com MEMÓRIA! Bot online como ${client.user.tag}`);
+});
+
 client.on('messageCreate', async (message) => {
-  // Ignora mensagens de outros bots para não criar loop infinito
   if (message.author.bot) return;
 
-  // O bot só vai responder se for mencionado (@NomeDoBot)
   if (message.mentions.has(client.user)) {
     try {
-      // Pega o que o usuário digitou e limpa a menção ao bot do texto
       const mensagemUsuario = message.content.replace(/<@!?\d+>/g, '').trim();
-      
-      // Mostra "O bot está digitando..." no Discord
+      const channelId = message.channel.id;
+
       await message.channel.sendTyping();
 
-      // Puxa o modelo gratuito e rápido do Gemini
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      // Se é a primeira vez conversando neste canal, cria um histórico em branco
+      if (!memoriasDosCanais.has(channelId)) {
+        console.log(`Criando nova sessão de memória para o canal: ${channelId}`);
+        const novoChat = model.startChat({
+          history: [] // Começa vazio, a IA já sabe quem é pelo systemInstruction
+        });
+        memoriasDosCanais.set(channelId, novoChat);
+      }
 
-      // Junta as ordens do sistema com a pergunta da pessoa
-      const promptFinal = `${promptDeSistema}\n\nUsuário perguntou: ${mensagemUsuario}`;
+      // Puxa o histórico específico desse canal
+      const chat = memoriasDosCanais.get(channelId);
 
-      // Gera a resposta
-      const result = await model.generateContent(promptFinal);
+      // O comando "sendMessage" automaticamente envia a mensagem e SALVA a resposta no histórico do 'chat'
+      const result = await chat.sendMessage(mensagemUsuario);
       const respostaIA = result.response.text();
 
-      // Envia a resposta no canal
       message.reply(respostaIA);
 
     } catch (error) {
-      console.error("Erro na Matrix:", error);
-      message.reply("Deu um tilt no meu sistema agora, tenta de novo em uns segundos!");
+      console.error("Erro no processamento da memória:", error);
+      message.reply("Deu um tilt nos meus circuitos agora, tenta de novo!");
     }
   }
 });
-// Mini-servidor para enganar o Render e manter o bot online
-const http = require('http');
-http.createServer((req, res) => res.end('Bot online!')).listen(process.env.PORT || 3000);
 
-// Liga o bot usando a senha secreta
 client.login(process.env.DISCORD_TOKEN);
