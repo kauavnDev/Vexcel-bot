@@ -4,7 +4,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const http = require('http');
 
 // 1. Mini-servidor web para o Render manter o bot online (Porta 3000)
-http.createServer((req, res) => res.end('Bot online com memória!')).listen(process.env.PORT || 3000);
+http.createServer((req, res) => res.end('Bot online com memoria!')).listen(process.env.PORT || 3000);
 
 // 2. Conexão com o Discord
 const client = new Client({
@@ -25,13 +25,13 @@ const promptDeSistema = `Você é um administrador do servidor. Nossa comunidade
 - Tire dúvidas dos membros, dê ideias para estruturar vendas ou códigos, e mantenha o clima do servidor organizado e produtivo.
 - Seja carismático e um pouco sarcástico, mas sempre prestativo.`;
 
-// 5. Configurando o cérebro com as instruções base
+// 5. Configurando o cérebro com o modelo padrão estável
 const model = genAI.getGenerativeModel({ 
-  model: "gemini-1.5-pro",
+  model: "gemini-2.5-flash",
   systemInstruction: promptDeSistema
 });
 
-// 6. A MEMÓRIA: Um "arquivo" na RAM para guardar o histórico de cada canal
+// 6. A MEMÓRIA: Um mapa na RAM para guardar o histórico de cada canal
 const memoriasDosCanais = new Map();
 
 client.on('ready', () => {
@@ -52,7 +52,7 @@ client.on('messageCreate', async (message) => {
       if (!memoriasDosCanais.has(channelId)) {
         console.log(`Criando nova sessão de memória para o canal: ${channelId}`);
         const novoChat = model.startChat({
-          history: [] // Começa vazio, a IA já sabe quem é pelo systemInstruction
+          history: []
         });
         memoriasDosCanais.set(channelId, novoChat);
       }
@@ -60,7 +60,7 @@ client.on('messageCreate', async (message) => {
       // Puxa o histórico específico desse canal
       const chat = memoriasDosCanais.get(channelId);
 
-      // O comando "sendMessage" automaticamente envia a mensagem e SALVA a resposta no histórico do 'chat'
+      // Envia a mensagem e salva o contexto automaticamente
       const result = await chat.sendMessage(mensagemUsuario);
       const respostaIA = result.response.text();
 
