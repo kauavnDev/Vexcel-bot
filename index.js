@@ -18,24 +18,14 @@ const client = new Client({
 // 3. Conexão com o Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// 4. A Personalidade do Bot
-const promptDeSistema = `Você é um administrador do servidor. Nossa comunidade é focada em tecnologia, projetos digitais e revenda de serviços.
-- Aja como um humano membro da equipe.
-- Você tem memória das conversas, então aja com naturalidade.
-- Tire dúvidas dos membros, dê ideias para estruturar vendas ou códigos, e mantenha o clima do servidor organizado e produtivo.
-- Seja carismático e um pouco sarcástico, mas sempre prestativo.`;
+// 4. Configurando o cérebro limpo (sem conflitos de parâmetros)
+const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-// 5. Configurando o cérebro com o modelo padrão
-const model = genAI.getGenerativeModel({ 
-  model: "gemini-pro",
-  systemInstruction: promptDeSistema
-});
-
-// 6. Memória RAM por canal
+// 5. Memória RAM por canal
 const memoriasDosCanais = new Map();
 
 client.on('ready', () => {
-  console.log(`⚡ Cérebro conectado! Bot online como ${client.user.tag}`);
+  console.log(`⚡ Cérebro conectado! @vexcel_bot online como ${client.user.tag}`);
 });
 
 client.on('messageCreate', async (message) => {
@@ -54,13 +44,17 @@ client.on('messageCreate', async (message) => {
       }
 
       const chat = memoriasDosCanais.get(channelId);
-      const result = await chat.sendMessage(mensagemUsuario);
+
+      // Injetamos a personalidade de administrador direto no prompt enviado
+      const promptComPersonalidade = `[Instrução Interna: Você é o @vexcel_bot, um administrador carismático, prestativo e um pouco sarcástico de um servidor de tecnologia, projetos digitais e revenda. Responda de forma natural e humana]. Mensagem do usuário: ${mensagemUsuario}`;
+
+      const result = await chat.sendMessage(promptComPersonalidade);
       const respostaIA = result.response.text();
 
       message.reply(respostaIA);
 
     } catch (error) {
-      console.error("Erro no processamento:", error);
+      console.error("Erro detalhado no processamento:", error);
       message.reply("Deu um tilt nos meus circuitos, tenta de novo em instantes!");
     }
   }
