@@ -56,6 +56,9 @@ client.on('messageCreate', async (message) => {
     }
   }
 });
+// Mini-servidor para enganar o Render e manter o bot online
+const http = require('http');
+http.createServer((req, res) => res.end('Bot online!')).listen(process.env.PORT || 3000);
 
 // Liga o bot usando a senha secreta
 client.login(process.env.DISCORD_TOKEN);
